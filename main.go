@@ -20,8 +20,6 @@ type IndexRow[K any] struct {
 }
 
 type DataTable[K any] struct {
-	// dataTable  []DataRow[K]
-	// next       int
 	indexTable IndexTable[K]
 	compare    func(a, b K) int
 	dataFile   *os.File
@@ -66,7 +64,7 @@ func (dt *DataTable[K]) insert(primaryKey K, data any) error {
 
 func (it *IndexTable[K]) insert(primaryKey K, offset int, compare func(a, b K) int) {
 	idx := 0
-	for idx < len(it.indexTable) && compare(it.indexTable[idx].primaryKey, primaryKey) < 0 {
+	for idx < len(it.indexTable) && compare(it.indexTable[idx].primaryKey, primaryKey) < 1 {
 		idx++
 	}
 	it.indexTable = append(it.indexTable[:idx], append([]IndexRow[K]{{primaryKey: primaryKey, offset: offset}}, it.indexTable[idx:]...)...)
@@ -100,10 +98,6 @@ func (dt *DataTable[K]) unserializeData(offset int) (DataRow[K], error) {
 	}
 
 	return dataRow, nil
-}
-
-func (dt *DataTable[K]) Close() {
-	dt.dataFile.Close()
 }
 
 func (dt *DataTable[K]) SaveIndex() error {
@@ -145,10 +139,6 @@ func newRow[K any](primaryKey K, data any) DataRow[K] {
 	return p
 }
 
-func (dt DataTable[K]) loadData() {
-
-}
-
 func main() {
 	dt, _ := NewDataTable(func(a, b int) int {
 		if a > b {
@@ -164,8 +154,6 @@ func main() {
 	dt.SaveIndex()
 	dt.LoadIndex("index.bin")
 	fmt.Println(dt.indexTable.indexTable)
-	// fmt.Println(dt.dataTable)
-	// fmt.Println(dt.indexTable.indexTable)
 	fmt.Println(dt.unserializeData(dt.indexTable.indexTable[0].offset))
 	fmt.Println(dt.unserializeData(dt.indexTable.indexTable[1].offset))
 	fmt.Println(dt.unserializeData(dt.indexTable.indexTable[2].offset))
