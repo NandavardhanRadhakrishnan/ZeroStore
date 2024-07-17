@@ -1,5 +1,10 @@
 package btree
 
+import (
+	"fmt"
+	"strings"
+)
+
 type BTreeNode[K any, V any] struct {
 	isLeaf   bool
 	keys     []K
@@ -28,7 +33,7 @@ func (bt *BTree[K, V]) Insert(key K, value V) {
 	if len(bt.root.keys) == (2*bt.t)-1 {
 		newRoot := &BTreeNode[K, V]{isLeaf: false}
 		newRoot.children = append(newRoot.children, bt.root)
-		bt.splitChild(newRoot, 0, bt.compare)
+		bt.splitChild(newRoot, 0)
 		bt.root = newRoot
 	}
 
@@ -54,7 +59,7 @@ func (bt *BTree[K, V]) insertNonFull(node *BTreeNode[K, V], key K, value V, comp
 		}
 		i++
 		if len(node.children[i].keys) == (2*bt.t)-1 {
-			bt.splitChild(node, i, compare)
+			bt.splitChild(node, i)
 			if compare(key, node.keys[i]) > 0 {
 				i++
 			}
@@ -63,7 +68,7 @@ func (bt *BTree[K, V]) insertNonFull(node *BTreeNode[K, V], key K, value V, comp
 	}
 }
 
-func (bt *BTree[K, V]) splitChild(parent *BTreeNode[K, V], i int, compare func(a, b K) int) {
+func (bt *BTree[K, V]) splitChild(parent *BTreeNode[K, V], i int) {
 	t := bt.t
 	child := parent.children[i]
 	newChild := &BTreeNode[K, V]{isLeaf: child.isLeaf}
@@ -111,4 +116,30 @@ func (bt *BTree[K, V]) search(node *BTreeNode[K, V], key K) (V, bool) {
 	}
 
 	return bt.search(node.children[i], key) // Search in the appropriate child
+}
+
+func (bt *BTree[K, V]) PrettyPrint() {
+	bt.prettyPrint(bt.root, 0)
+}
+
+func (bt *BTree[K, V]) prettyPrint(node *BTreeNode[K, V], level int) {
+	if node == nil {
+		return
+	}
+
+	indent := strings.Repeat("  ", level)
+	fmt.Printf("%sLevel %d: ", indent, level)
+	for i, key := range node.keys {
+		if i > 0 {
+			fmt.Printf(", ")
+		}
+		fmt.Printf("%v", key)
+	}
+	fmt.Println()
+
+	if !node.isLeaf {
+		for _, child := range node.children {
+			bt.prettyPrint(child, level+1)
+		}
+	}
 }

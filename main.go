@@ -127,8 +127,10 @@ func main() {
 	dt, _ := NewDataTable(func(a, b int) int {
 		if a > b {
 			return 1
-		} else {
+		} else if a == b {
 			return 0
+		} else {
+			return -1
 		}
 	}, "data.bin", "index.bin", 2)
 
@@ -136,13 +138,16 @@ func main() {
 		s := fmt.Sprintf("data:%d", i)
 		dt.Insert(i, s)
 	}
-	offset, _ := dt.indexTable.Search(4)
-	fmt.Println(dt.unserializeData(offset))
+
 	dt.SaveIndex()
 	dt.LoadIndex("index.bin")
-	offset, _ = dt.indexTable.Search(4)
-	fmt.Println(dt.unserializeData(offset))
+
+	for i := 0; i < 10; i++ {
+		offset, _ := dt.indexTable.Search(i)
+		fmt.Println(dt.unserializeData(offset))
+	}
+
 }
 
-// TODO btree search seems to be fubar solve that
+// TODO figure out UD of CRUD
 // look at boltDB for data storage strats
