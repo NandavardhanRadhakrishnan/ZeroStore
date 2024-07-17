@@ -4,14 +4,11 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
-	"reflect"
 )
 
 type DataRow[K any] struct {
-	Len           uint16
-	PrimaryKeyLen uint16
-	PrimaryKey    K
-	Data          any
+	PrimaryKey K
+	Data       any
 }
 
 type IndexRow[K any] struct {
@@ -128,14 +125,8 @@ func (dt *DataTable[K]) LoadIndex(indexFilePath string) error {
 
 func newRow[K any](primaryKey K, data any) DataRow[K] {
 	var p DataRow[K]
-	dataSize := reflect.TypeOf(data).Size()
-	pkSize := reflect.TypeOf(primaryKey).Size()
-	if int(dataSize) < 65535 && int(pkSize) < 65535 {
-		p.Len = uint16(dataSize)
-		p.PrimaryKeyLen = uint16(pkSize)
-		p.PrimaryKey = primaryKey
-		p.Data = data
-	}
+	p.PrimaryKey = primaryKey
+	p.Data = data
 	return p
 }
 
