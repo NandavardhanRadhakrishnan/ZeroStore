@@ -4,7 +4,7 @@
         {
             "label": "build main.go",
             "type": "shell",
-            "command": "go build -o main.exe main.go",
+            "command": "go build -o ZeroStore.exe main.go",
             "group": {
                 "kind": "build",
                 "isDefault": true
