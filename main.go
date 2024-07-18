@@ -2,6 +2,7 @@ package main
 
 import (
 	"ZeroStore/btree"
+	"ZeroStore/helper"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -19,18 +20,36 @@ type DataTable[K any] struct {
 	indexFile  *os.File
 }
 
-func NewDataTable[K any](compare func(a, b K) int, dataFilePath string, indexFilePath string, btreeDegree int) (*DataTable[K], error) {
+func NewDataTable[K any](compare func(a, b K) int, dataFilePath string, indexFilePath string, btreeDegree int, forceOverwrite bool) (*DataTable[K], error) {
 
-	dataFile, err := os.Create((dataFilePath))
-	if err != nil {
-		return nil, err
+	var dataFile *os.File
+	var indexFile *os.File
+	var err error
+
+	if helper.FileExists(dataFilePath) && !forceOverwrite {
+		dataFile, err = os.Open(dataFilePath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dataFile, err = os.Create((dataFilePath))
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	indexFile, err := os.Create(indexFilePath)
-	if err != nil {
-		dataFile.Close()
-		return nil, err
+	if helper.FileExists(indexFilePath) && !forceOverwrite {
+		indexFile, err = os.Open(indexFilePath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		indexFile, err = os.Create(indexFilePath)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	bt := btree.NewBTree[K, int](btreeDegree, compare)
 	return &DataTable[K]{
 		indexTable: *bt,
@@ -132,22 +151,29 @@ func main() {
 		} else {
 			return -1
 		}
-	}, "data.bin", "index.bin", 2)
+	}, "data.bin", "index.bin", 2, false)
 
-	for i := 0; i < 10; i++ {
-		s := fmt.Sprintf("data:%d", i)
-		dt.Insert(i, s)
+	// for i := 1; i < 11; i++ {
+	// 	s := fmt.Sprintf("data:%d", i)
+	// 	dt.Insert(i, s)
+	// }
+
+	// dt.SaveIndex()
+	// dt.LoadIndex("index.bin")
+
+	for i := 1; i < 11; i++ {
+		offset, found := dt.indexTable.Search(i)
+		if found {
+			fmt.Println(dt.unserializeData(offset))
+		} else {
+			fmt.Printf("%d not found\n", i)
+		}
 	}
 
-	dt.SaveIndex()
-	dt.LoadIndex("index.bin")
-
-	for i := 0; i < 10; i++ {
-		offset, _ := dt.indexTable.Search(i)
-		fmt.Println(dt.unserializeData(offset))
-	}
+	// dt.indexTable.PrettyPrint()
 
 }
 
+// TODO Index serialisation only saves root
 // TODO figure out UD of CRUD
 // look at boltDB for data storage strats
