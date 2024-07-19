@@ -1,26 +1,28 @@
 package main
 
 import (
-	"ZeroStore/btree"
+	"ZeroStore/datastructure/btree"
 	"ZeroStore/helper"
+	test "ZeroStore/utility"
 	"encoding/gob"
 	"fmt"
 	"os"
 )
 
-type DataRow[K any] struct {
+type DataRow[K any, V any] struct {
 	PrimaryKey K
-	Data       any
+	Data       V
 }
 
-type DataTable[K any] struct {
-	indexTable btree.BTree[K, int]
-	compare    func(a, b K) int
-	dataFile   *os.File
-	indexFile  *os.File
+type DataTable[K any, V any] struct {
+	indexTable  btree.BTree[K, int]
+	compare     func(a, b K) int
+	dataFile    *os.File
+	indexFile   *os.File
+	btreeDegree int
 }
 
-func NewDataTable[K any](compare func(a, b K) int, dataFilePath string, indexFilePath string, btreeDegree int, forceOverwrite bool) (*DataTable[K], error) {
+func NewDataTable[K any, V any](compare func(a, b K) int, dataFilePath string, indexFilePath string, btreeDegree int, forceOverwrite bool) (*DataTable[K, V], error) {
 
 	var dataFile *os.File
 	var indexFile *os.File
@@ -49,19 +51,21 @@ func NewDataTable[K any](compare func(a, b K) int, dataFilePath string, indexFil
 			return nil, err
 		}
 	}
+	gob.Register(DataRow[K, V]{})
 
 	bt := btree.NewBTree[K, int](btreeDegree, compare)
-	return &DataTable[K]{
-		indexTable: *bt,
-		compare:    compare,
-		dataFile:   dataFile,
-		indexFile:  indexFile,
+	return &DataTable[K, V]{
+		indexTable:  *bt,
+		compare:     compare,
+		dataFile:    dataFile,
+		indexFile:   indexFile,
+		btreeDegree: btreeDegree,
 	}, nil
 }
 
-func (dt *DataTable[K]) Insert(primaryKey K, data any) error {
+func (dt *DataTable[K, V]) Insert(primaryKey K, data V) error {
 	dataRow := newRow(primaryKey, data)
-	offset, err := dt.serializeData(dataRow)
+	offset, err := dt.SerializeData(dataRow)
 	if err != nil {
 		return err
 	}
@@ -70,15 +74,7 @@ func (dt *DataTable[K]) Insert(primaryKey K, data any) error {
 	return nil
 }
 
-// func (it *IndexTable[K]) insert(primaryKey K, offset int, compare func(a, b K) int) {
-// 	idx := 0
-// 	for idx < len(it.indexTable) && compare(it.indexTable[idx].primaryKey, primaryKey) < 1 {
-// 		idx++
-// 	}
-// 	it.indexTable = append(it.indexTable[:idx], append([]IndexRow[K]{{primaryKey: primaryKey, offset: offset}}, it.indexTable[idx:]...)...)
-// }
-
-func (dt *DataTable[K]) serializeData(dataRow DataRow[K]) (int, error) {
+func (dt *DataTable[K, V]) SerializeData(dataRow DataRow[K, V]) (int, error) {
 	offset, err := dt.dataFile.Seek(0, os.SEEK_END)
 	if err != nil {
 		return 0, err
@@ -92,88 +88,113 @@ func (dt *DataTable[K]) serializeData(dataRow DataRow[K]) (int, error) {
 	return int(offset), nil
 }
 
-func (dt *DataTable[K]) unserializeData(offset int) (DataRow[K], error) {
+func (dt *DataTable[K, V]) UnserializeData(offset int) (DataRow[K, V], error) {
 	_, err := dt.dataFile.Seek(int64(offset), os.SEEK_SET)
 	if err != nil {
-		return DataRow[K]{}, err
+		return DataRow[K, V]{}, err
 	}
 
-	var dataRow DataRow[K]
+	var dataRow DataRow[K, V]
 
 	decoder := gob.NewDecoder(dt.dataFile)
 	if err := decoder.Decode(&dataRow); err != nil {
-		return DataRow[K]{}, err
+		return DataRow[K, V]{}, err
 	}
 
 	return dataRow, nil
 }
 
-func (dt *DataTable[K]) SaveIndex() error {
-	if err := dt.indexFile.Truncate(0); err != nil {
+func (dt *DataTable[K, V]) SaveIndex() error {
+	err := dt.indexTable.Save(dt.indexFile)
+	if err != nil {
 		return err
 	}
-	if _, err := dt.indexFile.Seek(0, 0); err != nil {
-		return err
-	}
-	encoder := gob.NewEncoder(dt.indexFile)
-	return encoder.Encode(dt.indexTable)
+	return nil
 }
 
-func (dt *DataTable[K]) LoadIndex(indexFilePath string) error {
+func (dt *DataTable[K, V]) LoadIndex(indexFilePath string) error {
 	indexFile, err := os.Open(indexFilePath)
 	if err != nil {
 		return err
 	}
 	defer indexFile.Close()
 
-	decoder := gob.NewDecoder(indexFile)
-	if err := decoder.Decode(&dt.indexTable); err != nil {
+	err = dt.indexTable.Load(indexFile)
+	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func newRow[K any](primaryKey K, data any) DataRow[K] {
-	var p DataRow[K]
+func newRow[K any, V any](primaryKey K, data V) DataRow[K, V] {
+	var p DataRow[K, V]
 	p.PrimaryKey = primaryKey
 	p.Data = data
 	return p
 }
 
+func compare(a, b int) int {
+	if a > b {
+		return 1
+	} else if a == b {
+		return 0
+	} else {
+		return -1
+	}
+}
+
+// func main() {
+
+// 	dt, _ := NewDataTable(compare, "data.bin", "index.bin", 4, true)
+
+// 	for i := 1; i < 100001; i++ {
+// 		s := fmt.Sprintf("data:%d", i)
+// 		dt.Insert(i, s)
+// 	}
+
+// 	dt.SaveIndex()
+// 	dt.LoadIndex("index.bin")
+// 	// dt.indexTable.PrettyPrint()
+
+// 	for i := 1; i < 11; i++ {
+// 		offset, found := dt.indexTable.Search(i)
+// 		if found {
+// 			fmt.Println(dt.UnserializeData(offset))
+// 		} else {
+// 			fmt.Printf("%d not found\n", i)
+// 		}
+// 	}
+
+// 	offset, found := dt.indexTable.Search(582)
+// 	if found {
+// 		fmt.Println(dt.UnserializeData(offset))
+// 	} else {
+// 		fmt.Printf("%d not found\n", 582)
+// 	}
+
+// }
+
 func main() {
+	dt, _ := NewDataTable[int, test.Row](compare, "data.bin", "index.bin", 4, false)
 
-	dt, _ := NewDataTable(func(a, b int) int {
-		if a > b {
-			return 1
-		} else if a == b {
-			return 0
-		} else {
-			return -1
-		}
-	}, "data.bin", "index.bin", 2, false)
-
-	// for i := 1; i < 11; i++ {
-	// 	s := fmt.Sprintf("data:%d", i)
-	// 	dt.Insert(i, s)
+	// for i := 1; i < test.NumberOfRows; i++ {
+	// 	a := test.GenerateRow(1024)
+	// 	dt.Insert(i, a)
 	// }
 
 	// dt.SaveIndex()
-	// dt.LoadIndex("index.bin")
-
-	for i := 1; i < 11; i++ {
-		offset, found := dt.indexTable.Search(i)
-		if found {
-			fmt.Println(dt.unserializeData(offset))
-		} else {
-			fmt.Printf("%d not found\n", i)
-		}
-	}
-
+	dt.LoadIndex("index.bin")
 	// dt.indexTable.PrettyPrint()
+
+	i := test.NumberOfRows - 32
+	offset, found := dt.indexTable.Search(i)
+	if found {
+		fmt.Println(dt.UnserializeData(offset))
+	} else {
+		fmt.Printf("%d not found\n", i)
+	}
 
 }
 
-// TODO Index serialisation only saves root
 // TODO figure out UD of CRUD
 // look at boltDB for data storage strats
