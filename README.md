@@ -4,18 +4,22 @@ Key Value database made from scratch in Go
 <br>
 Work In Progress. Not production ready just made for learning
 
-Current stats:
+## Current Stats
 
-1 Mil rows ideal size
-Text Field Size: 1024 bytes
-Numeric Field Size: 8 bytes
-Timestamp Size: -1 bytes
-UUID Size: 36 bytes
-Total Row Size: 1067 bytes
-Total File Size for 1000000 rows: 1067000000 bytes
+### Ideal Size Calculation
 
-1 Mil rows on ZeroStore
-1268962268 bytes datafile
-106 MB index file
+| Field Type           | Size (bytes) |
+|----------------------|--------------|
+| Text Field Size      | 1024         |
+| Numeric Field Size   | 8            |
+| Timestamp Size       | -1           |
+| UUID Size            | 36           |
+| **Total Row Size**   | **1067**     |
+| **Total File Size for 1,000,000 rows** | **1,067,000,000** bytes |
 
-Compression ratio 84%
+### ZeroStore Stats
+
+- **Data File Size**: 1,268,962,268 bytes
+- **Index File Size**: 106 MB
+
+### **Compression Ratio: 84%**
