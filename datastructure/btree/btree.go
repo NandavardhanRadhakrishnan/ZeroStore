@@ -121,6 +121,163 @@ func (bt *BTree[K, V]) search(node *BTreeNode[K, V], key K) (V, bool) {
 	return bt.search(node.Children[i], key)
 }
 
+func (bt *BTree[K, V]) Delete(key K) (V, bool) {
+	if bt.root == nil {
+		var zero V
+		return zero, false
+	}
+
+	deletedValue, found := bt.delete(bt.root, key)
+	if found && len(bt.root.Keys) == 0 {
+		if bt.root.IsLeaf {
+			bt.root = nil
+		} else {
+			bt.root = bt.root.Children[0]
+		}
+	}
+
+	return deletedValue, found
+}
+
+func (bt *BTree[K, V]) delete(node *BTreeNode[K, V], key K) (V, bool) {
+	var zero V
+	t := bt.t
+	idx := 0
+	for idx < len(node.Keys) && bt.compare(node.Keys[idx], key) < 0 {
+		idx++
+	}
+
+	if idx < len(node.Keys) && bt.compare(node.Keys[idx], key) == 0 {
+		if node.IsLeaf {
+			deletedValue := node.Values[idx]
+			node.Keys = append(node.Keys[:idx], node.Keys[idx+1:]...)
+			node.Values = append(node.Values[:idx], node.Values[idx+1:]...)
+			return deletedValue, true
+		} else {
+			if len(node.Children[idx].Keys) >= t {
+				predKey, predVal := bt.getPred(node, idx)
+				node.Keys[idx] = predKey
+				node.Values[idx] = predVal
+				return bt.delete(node.Children[idx], predKey)
+			} else if len(node.Children[idx+1].Keys) >= t {
+				succKey, succVal := bt.getSucc(node, idx)
+				node.Keys[idx] = succKey
+				node.Values[idx] = succVal
+				return bt.delete(node.Children[idx+1], succKey)
+			} else {
+				bt.merge(node, idx)
+				return bt.delete(node.Children[idx], key)
+			}
+		}
+	} else {
+		if node.IsLeaf {
+			return zero, false
+		}
+
+		flag := (idx == len(node.Keys))
+
+		if len(node.Children[idx].Keys) < t {
+			bt.fill(node, idx)
+		}
+
+		if flag && idx > len(node.Keys) {
+			return bt.delete(node.Children[idx-1], key)
+		} else {
+			return bt.delete(node.Children[idx], key)
+		}
+	}
+}
+
+func (bt *BTree[K, V]) getPred(node *BTreeNode[K, V], idx int) (K, V) {
+	cur := node.Children[idx]
+	for !cur.IsLeaf {
+		cur = cur.Children[len(cur.Keys)]
+	}
+	return cur.Keys[len(cur.Keys)-1], cur.Values[len(cur.Values)-1]
+}
+
+func (bt *BTree[K, V]) getSucc(node *BTreeNode[K, V], idx int) (K, V) {
+	cur := node.Children[idx+1]
+	for !cur.IsLeaf {
+		cur = cur.Children[0]
+	}
+	return cur.Keys[0], cur.Values[0]
+}
+
+func (bt *BTree[K, V]) merge(node *BTreeNode[K, V], idx int) {
+	child := node.Children[idx]
+	sibling := node.Children[idx+1]
+
+	child.Keys = append(child.Keys, node.Keys[idx])
+	child.Values = append(child.Values, node.Values[idx])
+
+	child.Keys = append(child.Keys, sibling.Keys...)
+	child.Values = append(child.Values, sibling.Values...)
+
+	if !child.IsLeaf {
+		child.Children = append(child.Children, sibling.Children...)
+	}
+
+	node.Keys = append(node.Keys[:idx], node.Keys[idx+1:]...)
+	node.Values = append(node.Values[:idx], node.Values[idx+1:]...)
+	node.Children = append(node.Children[:idx+1], node.Children[idx+2:]...)
+}
+
+func (bt *BTree[K, V]) fill(node *BTreeNode[K, V], idx int) {
+	if idx != 0 && len(node.Children[idx-1].Keys) >= bt.t {
+		bt.borrowFromPrev(node, idx)
+	} else if idx != len(node.Keys) && len(node.Children[idx+1].Keys) >= bt.t {
+		bt.borrowFromNext(node, idx)
+	} else {
+		if idx != len(node.Keys) {
+			bt.merge(node, idx)
+		} else {
+			bt.merge(node, idx-1)
+		}
+	}
+}
+
+func (bt *BTree[K, V]) borrowFromPrev(node *BTreeNode[K, V], idx int) {
+	child := node.Children[idx]
+	sibling := node.Children[idx-1]
+
+	child.Keys = append([]K{node.Keys[idx-1]}, child.Keys...)
+	child.Values = append([]V{node.Values[idx-1]}, child.Values...)
+
+	if !child.IsLeaf {
+		child.Children = append([]*BTreeNode[K, V]{sibling.Children[len(sibling.Children)-1]}, child.Children...)
+	}
+
+	node.Keys[idx-1] = sibling.Keys[len(sibling.Keys)-1]
+	node.Values[idx-1] = sibling.Values[len(sibling.Values)-1]
+
+	sibling.Keys = sibling.Keys[:len(sibling.Keys)-1]
+	sibling.Values = sibling.Values[:len(sibling.Values)-1]
+
+	if !sibling.IsLeaf {
+		sibling.Children = sibling.Children[:len(sibling.Children)-1]
+	}
+}
+
+func (bt *BTree[K, V]) borrowFromNext(node *BTreeNode[K, V], idx int) {
+	child := node.Children[idx]
+	sibling := node.Children[idx+1]
+
+	child.Keys = append(child.Keys, node.Keys[idx])
+	child.Values = append(child.Values, node.Values[idx])
+
+	if !child.IsLeaf {
+		child.Children = append(child.Children, sibling.Children[0])
+		sibling.Children = sibling.Children[1:]
+	}
+
+	node.Keys[idx] = sibling.Keys[0]
+	node.Values[idx] = sibling.Values[0]
+
+	sibling.Keys = sibling.Keys[1:]
+	sibling.Values = sibling.Values[1:]
+}
+
 func (bt *BTree[K, V]) PrettyPrint() {
 	bt.prettyPrint(bt.root, 0)
 }
