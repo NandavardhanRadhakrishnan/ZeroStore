@@ -232,22 +232,32 @@ func compare(a, b int) int {
 	}
 }
 
-// func main() {
-// 	var dt *DataTable[int, string]
-// 	var err error
+func main() {
+	var dt *DataTable[int, string]
+	var err error
 
-// 	if dt, err = NewDataTable[int, string](compare, "testing", 4, true); err != nil {
-// 		panic(err)
-// 	}
+	if dt, err = NewDataTable[int, string](compare, "testing", 4, true); err != nil {
+		panic(err)
+	}
 
-// 	for i := 1; i < 101; i++ {
-// 		s := fmt.Sprintf("data:%d", i)
-// 		dt.Insert(i, s)
-// 	}
+	// for i := 1; i < 101; i++ {
+	// 	s := fmt.Sprintf("data:%d", i)
+	// 	dt.Insert(i, s)
+	// }
+	dt.Insert(1, "data 1")
+	dt.Insert(2, "data 2")
+	dt.Insert(3, "data 3")
+	dt.Insert(4, "data 4")
 
-// 	dt.SaveIndex()
+	o, _ := dt.indexTable.Search(1)
+	fmt.Println(dt.UnserializeData(o))
 
-// }
+	dt.Update(1, "updated data")
+
+	o, _ = dt.indexTable.Search(1)
+	fmt.Println(dt.UnserializeData(o))
+
+}
 
 func storeTest() {
 	fmt.Println("running test on ZeroStore\n")
@@ -262,9 +272,11 @@ func storeTest() {
 	test.CalculateEfficiencyPercentage("test/test_data.bin", test.NumberOfRows, 1024)
 }
 
-func main() {
-	storeTest()
-}
+// func main() {
+// 	storeTest()
+// }
 
-// TODO figure out U of CRUD
+// TODO background threads for compaction and serialisation
 // TODO implement data compaction based on freelist
+// TODO make wrapper functions for SQL like where select etc
+// TODO multi-table joins
