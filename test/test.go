@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,9 +43,45 @@ func GenerateRow(textLength int) Row {
 	}
 }
 
+func getFileSize(filePath string) (int64, error) {
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return 0, err
+	}
+	return fileInfo.Size(), nil
+}
+
+func CalculateEfficiencyPercentage(dataFile string, numRows int, textLength int) error {
+	dataSize, err := getFileSize(dataFile)
+	if err != nil {
+		return err
+	}
+
+	// Ideal size calculation
+	textFieldSize := textLength
+	numericFieldSize := 8 // size of float64
+	uuidSize := 36        // UUID length
+	totalRowSize := textFieldSize + numericFieldSize + uuidSize
+	totalFileSize := int64(totalRowSize) * int64(numRows)
+
+	// Calculate efficiency percentage
+	efficiency := (float64(totalFileSize) / float64(dataSize)) * 100
+
+	// Output the results
+	fmt.Printf("Text Field Size: %d bytes\n", textFieldSize)
+	fmt.Printf("Numeric Field Size: %d bytes\n", numericFieldSize)
+	fmt.Printf("UUID Size: %d bytes\n", uuidSize)
+	fmt.Printf("Total Row Size: %d bytes\n", totalRowSize)
+	fmt.Printf("Expected Total File Size for %d rows: %d bytes\n", numRows, totalFileSize)
+	fmt.Printf("Actual Data File Size: %d bytes\n", dataSize)
+	fmt.Printf("Efficiency Percentage: %.2f%%\n", efficiency)
+
+	return nil
+}
+
 const NumberOfRows = 1000000
 
-func main() {
+func Disp() {
 	// Define row schema
 	textLength := 1024 // 1 KB of text
 	numericField := rand.Float64()

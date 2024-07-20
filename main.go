@@ -3,6 +3,7 @@ package main
 import (
 	"ZeroStore/datastructure/btree"
 	"ZeroStore/helper"
+	"ZeroStore/test"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -231,44 +232,39 @@ func compare(a, b int) int {
 	}
 }
 
-func main() {
-	var dt *DataTable[int, string]
-	var err error
-
-	if dt, err = NewDataTable[int, string](compare, "testing", 4, true); err != nil {
-		panic(err)
-	}
-
-	for i := 1; i < 101; i++ {
-		s := fmt.Sprintf("data:%d", i)
-		dt.Insert(i, s)
-	}
-
-	dt.SaveIndex()
-
-}
-
 // func main() {
-// 	dt, _ := NewDataTable[int, test.Row](compare, "data.bin", "index.bin", "free.bin", 4, true)
+// 	var dt *DataTable[int, string]
+// 	var err error
 
-// 	// for i := 1; i < test.NumberOfRows; i++ {
-// 	// 	a := test.GenerateRow(1024)
-// 	// 	dt.Insert(i, a)
-// 	// }
-
-// 	// dt.SaveIndex()
-// 	dt.LoadIndex("index.bin")
-// 	// dt.indexTable.PrettyPrint()
-
-// 	i := test.NumberOfRows - 32
-// 	offset, found := dt.indexTable.Search(i)
-// 	if found {
-// 		fmt.Println(dt.UnserializeData(offset))
-// 	} else {
-// 		fmt.Printf("%d not found\n", i)
+// 	if dt, err = NewDataTable[int, string](compare, "testing", 4, true); err != nil {
+// 		panic(err)
 // 	}
+
+// 	for i := 1; i < 101; i++ {
+// 		s := fmt.Sprintf("data:%d", i)
+// 		dt.Insert(i, s)
+// 	}
+
+// 	dt.SaveIndex()
 
 // }
 
-// TODO figure out UD of CRUD
-// look at boltDB for data storage strats
+func storeTest() {
+	fmt.Println("running test on ZeroStore\n")
+
+	dt, _ := NewDataTable[int, test.Row](compare, "test/test", 4, true)
+	for i := 1; i < test.NumberOfRows; i++ {
+		a := test.GenerateRow(1024)
+		dt.Insert(i, a)
+	}
+	dt.SaveIndex()
+
+	test.CalculateEfficiencyPercentage("test/test_data.bin", test.NumberOfRows, 1024)
+}
+
+func main() {
+	storeTest()
+}
+
+// TODO figure out U of CRUD
+// TODO implement data compaction based on freelist
