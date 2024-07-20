@@ -4,9 +4,8 @@ Key Value database made from scratch in Go
 <br>  
 Work In Progress. Not production ready just made for learning.
 
-## Current Stats
+## Current Efficiency 
 
-### Ideal Size Calculation
 
 | Field Type           | Size (bytes) |
 |----------------------|--------------|
