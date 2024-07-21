@@ -6,7 +6,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
-	"unsafe"
+	"sort"
 )
 
 type DataRow[K any, V any] struct {
@@ -127,12 +127,32 @@ func (dt *DataTable[K, V]) Search(primaryKey K) (DataRow[K, V], error) {
 
 func (dt *DataTable[K, V]) Insert(primaryKey K, data V) error {
 	dataRow := newRow(primaryKey, data)
-	offset, err := dt.SerializeData(dataRow, -1)
+	reqSize := int64(helper.RealSizeOf(dataRow))
+	offset := -1
+	var err error
+
+	for i, f := range dt.FreeList {
+		if reqSize <= f.Size {
+			offset = int(f.Offset)
+			if f.Size-reqSize > 0 {
+				dt.FreeList[i] = FreeNode{Offset: int64(offset) + reqSize, Size: f.Size - reqSize}
+			} else {
+				dt.FreeList = dt.FreeList[1:]
+			}
+			if err := gob.NewEncoder(dt.freeFile).Encode(dt.FreeList); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	offset, err = dt.SerializeData(dataRow, offset)
 	if err != nil {
 		return err
 	}
 
 	dt.IndexTable.Insert(primaryKey, offset)
+
 	return nil
 }
 
@@ -180,7 +200,11 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) (DataRow[K, V], error) {
 		return zero, err
 	}
 
-	dt.FreeList = append(dt.FreeList, FreeNode{Offset: int64(offset), Size: int64(unsafe.Sizeof(dr))})
+	dt.FreeList = append(dt.FreeList, FreeNode{Offset: int64(offset), Size: int64(helper.RealSizeOf(dr))})
+
+	sort.Slice(dt.FreeList, func(i, j int) bool {
+		return dt.FreeList[i].Size < dt.FreeList[j].Size
+	})
 
 	if err := gob.NewEncoder(dt.freeFile).Encode(dt.FreeList); err != nil {
 		return zero, err
@@ -316,20 +340,6 @@ func (dt *DataTable[K, V]) serializeDataToFile(dataRow DataRow[K, V], file *os.F
 	}
 
 	return int(offset), nil
-}
-
-func (dt *DataTable[K, V]) saveFreeList() error {
-	freeFile, err := os.OpenFile(dt.freeFile.Name(), os.O_RDWR|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
-	}
-	defer freeFile.Close()
-
-	if err := gob.NewEncoder(freeFile).Encode(dt.FreeList); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func newRow[K any, V any](primaryKey K, data V) DataRow[K, V] {

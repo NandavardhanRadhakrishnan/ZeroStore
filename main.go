@@ -7,7 +7,7 @@ import (
 )
 
 func storeTest() {
-	fmt.Println("running test on ZeroStore\n")
+	fmt.Println("running test on ZeroStore")
 
 	dt, _ := engine.NewDataTable[int, test.Row](compare, "test/test", 4, true)
 	for i := 1; i < test.NumberOfRows; i++ {
@@ -41,16 +41,26 @@ func main() {
 	// 	s := fmt.Sprintf("data:%d", i)
 	// 	dt.Insert(i, s)
 	// }
-	dt.Insert(1, "data 1")
-	dt.Insert(2, "data 2")
-	dt.Insert(3, "data 3")
-	dt.Insert(4, "data 4")
+	dt.Insert(1, "aaaaaa")
+	dt.Insert(4, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	dt.Insert(3, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	dt.Insert(2, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
 	for k, v := range dt.IndexTable.GetAll() {
 		fmt.Println(k, v)
 	}
 
+	dt.Delete(1)
+	dt.Delete(2)
 	dt.Delete(3)
+	dt.Delete(4)
+
+	dt.Insert(1, "hello")
+
+	for k, v := range dt.IndexTable.GetAll() {
+		fmt.Println(k, v)
+	}
+
 	dt.Compact()
 
 	for k, v := range dt.IndexTable.GetAll() {
@@ -61,7 +71,6 @@ func mulTwo(i int) int {
 	return i * 2
 }
 
-// TODO insertion based on FreeList
 // TODO make wrapper functions for SQL like where select etc
 // TODO batch processing optimising
 // TODO background threads for compaction and serialisation
