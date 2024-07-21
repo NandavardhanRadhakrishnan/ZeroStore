@@ -313,6 +313,10 @@ func (bt *BTree[K, V]) borrowFromNext(node *BTreeNode[K, V], idx int) {
 	sibling.Values = sibling.Values[1:]
 }
 
+func (bt *BTree[K, V]) Clear() {
+	bt.root = nil
+}
+
 func (bt *BTree[K, V]) PrettyPrint() {
 	bt.prettyPrint(bt.root, 0)
 }

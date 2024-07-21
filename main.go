@@ -46,45 +46,23 @@ func main() {
 	dt.Insert(3, "data 3")
 	dt.Insert(4, "data 4")
 
-	// for i := 1; i < 5; i++ {
-	// 	o, _ := dt.IndexTable.Search(i)
-	// 	fmt.Println(dt.UnserializeData(o))
-	// }
-
-	// for i := 1; i < 5; i++ {
-	// 	dt.UpdateWithFunc(i, mulTwo)
-	// }
-	// fmt.Println("update")
-	// for i := 1; i < 5; i++ {
-	// 	o, _ := dt.IndexTable.Search(i)
-	// 	fmt.Println(dt.UnserializeData(o))
-	// }
-
-	// for k, v := range dt.IndexTable.GetAll() {
-	// 	fmt.Println(k, v)
-	// }
-	// dt.Delete(1)
-	// dt.Insert(1, 1)
-	// dr, err := dt.Search(1)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(dr)
-	rows, err := dt.GetAll()
-	if err != nil {
-		panic(err)
+	for k, v := range dt.IndexTable.GetAll() {
+		fmt.Println(k, v)
 	}
-	for _, row := range rows {
-		fmt.Println(row)
+
+	dt.Delete(3)
+	dt.Compact()
+
+	for k, v := range dt.IndexTable.GetAll() {
+		fmt.Println(k, v)
 	}
 }
-
 func mulTwo(i int) int {
 	return i * 2
 }
 
+// TODO insertion based on FreeList
 // TODO make wrapper functions for SQL like where select etc
 // TODO batch processing optimising
 // TODO background threads for compaction and serialisation
-// TODO implement data compaction based on freelist
 // TODO multi-table joins

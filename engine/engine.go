@@ -20,7 +20,7 @@ type FreeNode struct {
 	Size   int64
 }
 
-type DataTable[K any, V any] struct {
+type DataTable[K comparable, V any] struct {
 	IndexTable  btree.BTree[K, int]
 	Compare     func(a, b K) int
 	DataFile    *os.File
@@ -30,7 +30,7 @@ type DataTable[K any, V any] struct {
 	FreeList    []FreeNode
 }
 
-func NewDataTable[K any, V any](compare func(a, b K) int, dbName string, btreeDegree int, forceOverwrite bool) (*DataTable[K, V], error) {
+func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, btreeDegree int, forceOverwrite bool) (*DataTable[K, V], error) {
 
 	var dataFile *os.File
 	var indexFile *os.File
@@ -248,6 +248,87 @@ func (dt *DataTable[K, V]) LoadIndex(indexFilePath string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (dt *DataTable[K, V]) Compact() error {
+	tempDataFilePath := dt.DataFile.Name() + ".tmp"
+	tempDataFile, err := os.Create(tempDataFilePath)
+	if err != nil {
+		return err
+	}
+
+	newOffsets := make(map[K]int)
+	for _, item := range dt.IndexTable.GetAll() {
+		oldOffset := item.Value
+		dataRow, err := dt.UnserializeData(oldOffset)
+		if err != nil {
+			return err
+		}
+
+		newOffset, err := dt.serializeDataToFile(dataRow, tempDataFile)
+		if err != nil {
+			return err
+		}
+		newOffsets[item.Key] = newOffset
+	}
+
+	dt.DataFile.Close()
+	tempDataFile.Close()
+
+	err = os.Rename(tempDataFilePath, dt.DataFile.Name())
+	if err != nil {
+		return err
+	}
+
+	dt.DataFile, err = os.OpenFile(dt.DataFile.Name(), os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+
+	dt.IndexTable.Clear()
+	for key, newOffset := range newOffsets {
+		dt.IndexTable.Insert(key, newOffset)
+	}
+
+	err = dt.SaveIndex()
+	if err != nil {
+		return err
+	}
+
+	err = dt.freeFile.Truncate(0)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dt *DataTable[K, V]) serializeDataToFile(dataRow DataRow[K, V], file *os.File) (int, error) {
+	offset, err := file.Seek(0, os.SEEK_END)
+	if err != nil {
+		return 0, err
+	}
+
+	encoder := gob.NewEncoder(file)
+	if err := encoder.Encode(dataRow); err != nil {
+		return 0, err
+	}
+
+	return int(offset), nil
+}
+
+func (dt *DataTable[K, V]) saveFreeList() error {
+	freeFile, err := os.OpenFile(dt.freeFile.Name(), os.O_RDWR|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer freeFile.Close()
+
+	if err := gob.NewEncoder(freeFile).Encode(dt.FreeList); err != nil {
+		return err
+	}
+
 	return nil
 }
 
