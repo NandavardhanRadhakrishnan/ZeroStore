@@ -20,6 +20,24 @@ type FreeNode struct {
 	Size   int64
 }
 
+type OffsetTracker struct {
+	offsets []int
+}
+
+func NewOffsetTracker(initialOffsets []int) *OffsetTracker {
+	return &OffsetTracker{offsets: initialOffsets}
+}
+
+func (ot *OffsetTracker) updateOffset(oldOffset, newOffset int) bool {
+	for i, v := range ot.offsets {
+		if v == oldOffset {
+			ot.offsets[i] = newOffset
+			return true
+		}
+	}
+	return false
+}
+
 type DataTable[K comparable, V any] struct {
 	IndexTable  btree.BTree[K, int]
 	Compare     func(a, b K) int
@@ -211,6 +229,21 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) (DataRow[K, V], error) {
 	}
 
 	return dr, nil
+}
+
+func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) []K {
+	var keys []K
+
+	rows, err := dt.GetAll()
+	if err != nil {
+		return nil
+	}
+	for _, row := range rows {
+		if filter(row) {
+			keys = append(keys, row.PrimaryKey)
+		}
+	}
+	return keys
 }
 
 func (dt *DataTable[K, V]) SerializeData(dataRow DataRow[K, V], location int) (int, error) {

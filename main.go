@@ -30,45 +30,28 @@ func compare(a, b int) int {
 }
 
 func main() {
-	var dt *engine.DataTable[int, string]
+	var dt *engine.DataTable[int, int]
 	var err error
 
-	if dt, err = engine.NewDataTable[int, string](compare, "testing", 4, true); err != nil {
+	if dt, err = engine.NewDataTable[int, int](compare, "testing", 4, true); err != nil {
 		panic(err)
 	}
 
-	// for i := 1; i < 101; i++ {
-	// 	s := fmt.Sprintf("data:%d", i)
-	// 	dt.Insert(i, s)
-	// }
-	dt.Insert(1, "aaaaaa")
-	dt.Insert(4, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	dt.Insert(3, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	dt.Insert(2, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-
-	for k, v := range dt.IndexTable.GetAll() {
-		fmt.Println(k, v)
+	for i := 1; i < 10; i++ {
+		// s := fmt.Sprintf("data:%d", i)
+		dt.Insert(i, i)
 	}
 
-	dt.Delete(1)
-	dt.Delete(2)
-	dt.Delete(3)
-	dt.Delete(4)
-
-	dt.Insert(1, "hello")
-
-	for k, v := range dt.IndexTable.GetAll() {
-		fmt.Println(k, v)
-	}
-
-	dt.Compact()
-
-	for k, v := range dt.IndexTable.GetAll() {
-		fmt.Println(k, v)
+	for _, k := range dt.Where(gtThree) {
+		fmt.Println(k)
 	}
 }
 func mulTwo(i int) int {
 	return i * 2
+}
+
+func gtThree(d engine.DataRow[int, int]) bool {
+	return d.Data > 3
 }
 
 // TODO make wrapper functions for SQL like where select etc
