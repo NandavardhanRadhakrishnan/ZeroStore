@@ -246,6 +246,16 @@ func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) []K {
 	return keys
 }
 
+func (dt *DataTable[K, V]) Select(keys []K) []DataRow[K, V] {
+	var result []DataRow[K, V]
+
+	for _, k := range keys {
+		dataRow, _ := dt.Search(k)
+		result = append(result, dataRow)
+	}
+	return result
+}
+
 func (dt *DataTable[K, V]) SerializeData(dataRow DataRow[K, V], location int) (int, error) {
 	var offset int64
 	var err error

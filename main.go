@@ -42,7 +42,7 @@ func main() {
 		dt.Insert(i, i)
 	}
 
-	for _, k := range dt.Where(gtThree) {
+	for _, k := range dt.Select(dt.Where(gtThree)) {
 		fmt.Println(k)
 	}
 }
