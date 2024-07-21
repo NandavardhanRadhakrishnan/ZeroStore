@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+type KVPair[K any, V any] struct {
+	Key   K
+	Value V
+}
+
 type BTreeNode[K any, V any] struct {
 	IsLeaf   bool
 	Keys     []K
@@ -23,6 +28,36 @@ type BTree[K any, V any] struct {
 func NewBTree[K any, V any](t int, compare func(a, b K) int) *BTree[K, V] {
 	gob.Register(&BTreeNode[K, V]{})
 	return &BTree[K, V]{t: t, root: nil, compare: compare}
+}
+
+func (bt *BTree[K, V]) GetAll() []KVPair[K, V] {
+	if bt.root == nil {
+		return nil
+	}
+	return bt.getAll(bt.root)
+}
+
+func (bt *BTree[K, V]) getAll(node *BTreeNode[K, V]) []KVPair[K, V] {
+	var result []KVPair[K, V]
+
+	if node == nil {
+		return result
+	}
+
+	if node.IsLeaf {
+		for i, key := range node.Keys {
+			result = append(result, KVPair[K, V]{Key: key, Value: node.Values[i]})
+		}
+		return result
+	}
+
+	for i := 0; i < len(node.Keys); i++ {
+		result = append(result, bt.getAll(node.Children[i])...)
+		result = append(result, KVPair[K, V]{Key: node.Keys[i], Value: node.Values[i]})
+	}
+	result = append(result, bt.getAll(node.Children[len(node.Keys)])...)
+
+	return result
 }
 
 func (bt *BTree[K, V]) Insert(key K, value V) {

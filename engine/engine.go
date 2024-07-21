@@ -103,6 +103,28 @@ func NewDataTable[K any, V any](compare func(a, b K) int, dbName string, btreeDe
 	}, nil
 }
 
+func (dt *DataTable[K, V]) GetAll() ([]DataRow[K, V], error) {
+	var rows []DataRow[K, V]
+	var dr DataRow[K, V]
+	var err error
+
+	for _, offset := range dt.IndexTable.GetAll() {
+		if dr, err = dt.UnserializeData(offset.Value); err != nil {
+			return nil, err
+		}
+		rows = append(rows, dr)
+	}
+	return rows, nil
+}
+
+func (dt *DataTable[K, V]) Search(primaryKey K) (DataRow[K, V], error) {
+	if offset, found := dt.IndexTable.Search(primaryKey); found {
+		return dt.UnserializeData(offset)
+	}
+	var zero DataRow[K, V]
+	return zero, fmt.Errorf("key not found")
+}
+
 func (dt *DataTable[K, V]) Insert(primaryKey K, data V) error {
 	dataRow := newRow(primaryKey, data)
 	offset, err := dt.SerializeData(dataRow, -1)
