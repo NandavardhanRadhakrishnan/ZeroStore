@@ -224,30 +224,41 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) (DataRow[K, V], error) {
 
 // TODO error handling for where and select
 
-func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) []K {
-	var keys []K
+func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) ([]K, error) {
 
-	rows, err := dt.GetAll()
+	var rows []DataRow[K, V]
+	var keys []K
+	var err error
+
+	rows, err = dt.GetAll()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	for _, row := range rows {
 		if filter(row) {
 			keys = append(keys, row.PrimaryKey)
 		}
 	}
-	return keys
+	return keys, nil
 }
 
-func (dt *DataTable[K, V]) Select(keys []K, columns []string) []interface{} {
+func (dt *DataTable[K, V]) Select(keys []K, columns []string) ([]interface{}, error) {
+
+	var dataRow DataRow[K, V]
 	var result []interface{}
+	var projectedRow interface{}
+	var err error
 
 	for _, k := range keys {
-		dataRow, _ := dt.Search(k)
-		projectedRow, _ := projectRow(dataRow, columns)
+		if dataRow, err = dt.Search(k); err != nil {
+			return nil, err
+		}
+		if projectedRow, err = projectRow(dataRow, columns); err != nil {
+			return nil, err
+		}
 		result = append(result, projectedRow)
 	}
-	return result
+	return result, nil
 }
 
 func (dt *DataTable[K, V]) SerializeData(dataRow DataRow[K, V], location int) (int, error) {
@@ -387,7 +398,7 @@ func newRow[K comparable, V any](primaryKey K, data V) DataRow[K, V] {
 	return p
 }
 
-func projectRow[K comparable, V any](row DataRow[K, V], columns []string) (map[string]interface{}, error) {
+func projectRow[K comparable, V any](row DataRow[K, V], columns []string) (interface{}, error) {
 	val := reflect.ValueOf(row.Data)
 	// typ := reflect.TypeOf(row.Data)
 

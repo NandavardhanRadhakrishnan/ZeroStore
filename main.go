@@ -46,8 +46,19 @@ func main() {
 		// s := fmt.Sprintf("data:%d", i)
 		dt.Insert(i, emp{Id: i, Name: string(i)})
 	}
+
 	cols := []string{"Name"}
-	for _, k := range dt.Select(dt.Where(all), cols) {
+	var keys []int
+	var dataRows []interface{}
+
+	if keys, err = dt.Where(all); err != nil {
+		panic(err)
+	}
+	if dataRows, err = dt.Select(keys, cols); err != nil {
+		panic(err)
+	}
+
+	for _, k := range dataRows {
 		fmt.Println(k)
 	}
 	// fmt.Println(dt.Columns)
