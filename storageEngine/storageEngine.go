@@ -1,4 +1,4 @@
-package engine
+package storageEngine
 
 import (
 	"ZeroStore/datastructure/btree"
@@ -6,10 +6,11 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 )
 
-type DataRow[K any, V any] struct {
+type DataRow[K comparable, V any] struct {
 	PrimaryKey K
 	Data       V
 	IsValid    bool
@@ -20,25 +21,8 @@ type FreeNode struct {
 	Size   int64
 }
 
-type OffsetTracker struct {
-	offsets []int
-}
-
-func NewOffsetTracker(initialOffsets []int) *OffsetTracker {
-	return &OffsetTracker{offsets: initialOffsets}
-}
-
-func (ot *OffsetTracker) updateOffset(oldOffset, newOffset int) bool {
-	for i, v := range ot.offsets {
-		if v == oldOffset {
-			ot.offsets[i] = newOffset
-			return true
-		}
-	}
-	return false
-}
-
 type DataTable[K comparable, V any] struct {
+	Columns     []string
 	IndexTable  btree.BTree[K, int]
 	Compare     func(a, b K) int
 	DataFile    *os.File
@@ -53,11 +37,17 @@ func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, 
 	var dataFile *os.File
 	var indexFile *os.File
 	var freeFile *os.File
+	var cols []string
 	var err error
 	var freeList []FreeNode
 	dataFilePath := dbName + "_data.bin"
 	indexFilePath := dbName + "_index.bin"
 	freeFilePath := dbName + "_free.bin"
+
+	if cols, err = helper.GetFieldNames[V](); err != nil {
+		return nil, err
+	}
+
 	if helper.FileExists(dataFilePath) && !forceOverwrite {
 		dataFile, err = os.Open(dataFilePath)
 		if err != nil {
@@ -111,6 +101,7 @@ func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, 
 
 	bt := btree.NewBTree[K, int](btreeDegree, compare)
 	return &DataTable[K, V]{
+		Columns:     cols,
 		IndexTable:  *bt,
 		Compare:     compare,
 		DataFile:    dataFile,
@@ -231,6 +222,8 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) (DataRow[K, V], error) {
 	return dr, nil
 }
 
+// TODO error handling for where and select
+
 func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) []K {
 	var keys []K
 
@@ -246,12 +239,13 @@ func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) []K {
 	return keys
 }
 
-func (dt *DataTable[K, V]) Select(keys []K) []DataRow[K, V] {
-	var result []DataRow[K, V]
+func (dt *DataTable[K, V]) Select(keys []K, columns []string) []interface{} {
+	var result []interface{}
 
 	for _, k := range keys {
 		dataRow, _ := dt.Search(k)
-		result = append(result, dataRow)
+		projectedRow, _ := projectRow(dataRow, columns)
+		result = append(result, projectedRow)
 	}
 	return result
 }
@@ -385,10 +379,29 @@ func (dt *DataTable[K, V]) serializeDataToFile(dataRow DataRow[K, V], file *os.F
 	return int(offset), nil
 }
 
-func newRow[K any, V any](primaryKey K, data V) DataRow[K, V] {
+func newRow[K comparable, V any](primaryKey K, data V) DataRow[K, V] {
 	var p DataRow[K, V]
 	p.PrimaryKey = primaryKey
 	p.Data = data
 	p.IsValid = true
 	return p
+}
+
+func projectRow[K comparable, V any](row DataRow[K, V], columns []string) (map[string]interface{}, error) {
+	val := reflect.ValueOf(row.Data)
+	// typ := reflect.TypeOf(row.Data)
+
+	if val.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("Data is not a struct")
+	}
+
+	result := make(map[string]interface{})
+	for _, column := range columns {
+		field := val.FieldByName(column)
+		if !field.IsValid() {
+			return nil, fmt.Errorf("field %s not found in struct", column)
+		}
+		result[column] = field.Interface()
+	}
+	return result, nil
 }

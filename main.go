@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ZeroStore/engine"
+	"ZeroStore/storageEngine"
 	"ZeroStore/test"
 	"fmt"
 )
@@ -9,7 +9,7 @@ import (
 func storeTest() {
 	fmt.Println("running test on ZeroStore")
 
-	dt, _ := engine.NewDataTable[int, test.Row](compare, "test/test", 4, true)
+	dt, _ := storageEngine.NewDataTable[int, test.Row](compare, "test/test", 4, true)
 	for i := 1; i < test.NumberOfRows; i++ {
 		a := test.GenerateRow(1024)
 		dt.Insert(i, a)
@@ -29,32 +29,38 @@ func compare(a, b int) int {
 	}
 }
 
+type emp struct {
+	Id   int
+	Name string
+}
+
 func main() {
-	var dt *engine.DataTable[int, int]
+	var dt *storageEngine.DataTable[int, emp]
 	var err error
 
-	if dt, err = engine.NewDataTable[int, int](compare, "testing", 4, true); err != nil {
+	if dt, err = storageEngine.NewDataTable[int, emp](compare, "testing", 4, true); err != nil {
 		panic(err)
 	}
 
 	for i := 1; i < 10; i++ {
 		// s := fmt.Sprintf("data:%d", i)
-		dt.Insert(i, i)
+		dt.Insert(i, emp{Id: i, Name: string(i)})
 	}
-
-	for _, k := range dt.Select(dt.Where(gtThree)) {
+	cols := []string{"Name"}
+	for _, k := range dt.Select(dt.Where(all), cols) {
 		fmt.Println(k)
 	}
+	// fmt.Println(dt.Columns)
 }
+
 func mulTwo(i int) int {
 	return i * 2
 }
 
-func gtThree(d engine.DataRow[int, int]) bool {
-	return d.Data > 3
+func gtThree(d storageEngine.DataRow[int, emp]) bool {
+	return d.Data.Id > 3
 }
 
-// TODO make wrapper functions for SQL like where select etc
-// TODO batch processing optimising
-// TODO background threads for compaction and serialisation
-// TODO multi-table joins
+func all(d storageEngine.DataRow[int, emp]) bool {
+	return true
+}
