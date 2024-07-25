@@ -7,7 +7,7 @@ Work In Progress. Not production ready just made for learning.
 TODO
 
 - [ ] index for other columns to speed up searching
-- [ ] make wrapper functions for SQL like where select etc
+- [x] make wrapper functions for SQL like where select etc
 - [ ] batch processing optimisation
 - [ ] background threads for compaction and serialisation
 - [ ] multi-table joins
