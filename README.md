@@ -4,6 +4,13 @@ Key Value database made from scratch in Go
 <br>  
 Work In Progress. Not production ready just made for learning.
 
+TODO <br>
+- [ ] make wrapper functions for SQL like where select etc
+- [ ] batch processing optimisation
+- [ ] background threads for compaction and serialisation
+- [ ] multi-table joins
+- [ ] hardware level block storage optimisation
+
 ## Current Efficiency 
 
 
