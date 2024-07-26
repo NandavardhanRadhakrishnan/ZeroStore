@@ -222,8 +222,6 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) (DataRow[K, V], error) {
 	return dr, nil
 }
 
-// TODO error handling for where and select
-
 func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) ([]K, error) {
 
 	var rows []DataRow[K, V]

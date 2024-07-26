@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ZeroStore/queryEngine"
 	"ZeroStore/storageEngine"
 	"ZeroStore/test"
 	"fmt"
@@ -44,24 +45,18 @@ func main() {
 
 	for i := 1; i < 10; i++ {
 		// s := fmt.Sprintf("data:%d", i)
-		dt.Insert(i, emp{Id: i, Name: string(i)})
+		dt.Insert(i, emp{Id: i, Name: fmt.Sprintf("name is:%v", i)})
 	}
 
-	cols := []string{"Name"}
-	var keys []int
-	var dataRows []interface{}
-
-	if keys, err = dt.Where(all); err != nil {
+	qb := queryEngine.NewQueryBuilder(dt)
+	data, err := qb.Select([]string{"Name"}).Where(gtThree).Execute()
+	if err != nil {
 		panic(err)
 	}
-	if dataRows, err = dt.Select(keys, cols); err != nil {
-		panic(err)
+	for _, d := range data {
+		fmt.Println(d)
 	}
 
-	for _, k := range dataRows {
-		fmt.Println(k)
-	}
-	// fmt.Println(dt.Columns)
 }
 
 func mulTwo(i int) int {
