@@ -112,18 +112,24 @@ func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, 
 	}, nil
 }
 
-func (dt *DataTable[K, V]) GetAll() ([]DataRow[K, V], error) {
-	var rows []DataRow[K, V]
+func (dt *DataTable[K, V]) GetAll() (chan DataRow[K, V], error) {
 	var dr DataRow[K, V]
 	var err error
+	rowsChan := make(chan DataRow[K, V])
 
-	for _, offset := range dt.IndexTable.GetAll() {
-		if dr, err = dt.UnserializeData(offset.Value); err != nil {
-			return nil, err
+	go func() {
+		defer close(rowsChan)
+		for _, offset := range dt.IndexTable.GetAll() {
+			if dr, err = dt.UnserializeData(offset.Value); err != nil {
+				return
+			}
+			rowsChan <- dr
 		}
-		rows = append(rows, dr)
+	}()
+	if err != nil {
+		return make(chan DataRow[K, V]), err
 	}
-	return rows, nil
+	return rowsChan, nil
 }
 
 func (dt *DataTable[K, V]) Search(primaryKey K) (DataRow[K, V], error) {
@@ -224,15 +230,15 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) (DataRow[K, V], error) {
 
 func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) ([]K, error) {
 
-	var rows []DataRow[K, V]
-	var keys []K
+	var rows chan DataRow[K, V]
 	var err error
+	var keys []K
 
 	rows, err = dt.GetAll()
 	if err != nil {
 		return nil, err
 	}
-	for _, row := range rows {
+	for row := range rows {
 		if filter(row) {
 			keys = append(keys, row.PrimaryKey)
 		}
@@ -240,12 +246,12 @@ func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) ([]K, error) {
 	return keys, nil
 }
 
-func (dt *DataTable[K, V]) Select(keys []K, columns []string) ([]interface{}, error) {
+func (dt *DataTable[K, V]) Select(keys []K, columns []string) (chan interface{}, error) {
 
 	var dataRow DataRow[K, V]
-	var result []interface{}
 	var projectedRow interface{}
 	var err error
+	result := make(chan interface{})
 
 	for _, k := range keys {
 		if dataRow, err = dt.Search(k); err != nil {
@@ -254,7 +260,7 @@ func (dt *DataTable[K, V]) Select(keys []K, columns []string) ([]interface{}, er
 		if projectedRow, err = projectRow(dataRow, columns); err != nil {
 			return nil, err
 		}
-		result = append(result, projectedRow)
+		result <- projectedRow
 	}
 	return result, nil
 }

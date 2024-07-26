@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for _, d := range data {
+	for d := range data {
 		fmt.Println(d)
 	}
 

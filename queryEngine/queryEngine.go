@@ -10,6 +10,7 @@ type QueryBuilder[K comparable, V any] struct {
 	filter     func(storageEngine.DataRow[K, V]) bool
 	columns    []string
 	updateFunc func(data V) V
+	updateData *V
 }
 
 func NewQueryBuilder[K comparable, V any](dt *storageEngine.DataTable[K, V]) *QueryBuilder[K, V] {
@@ -26,6 +27,11 @@ func (qb *QueryBuilder[K, V]) Where(filter func(storageEngine.DataRow[K, V]) boo
 	return qb
 }
 
+func (qb *QueryBuilder[K, V]) UpdateWithData(UpdateData V) *QueryBuilder[K, V] {
+	qb.updateData = &UpdateData
+	return qb
+}
+
 func (qb *QueryBuilder[K, V]) UpdateWithFunc(updateFunc func(data V) V) *QueryBuilder[K, V] {
 	qb.updateFunc = updateFunc
 	return qb
@@ -35,14 +41,22 @@ func (qb *QueryBuilder[K, V]) Delete() *QueryBuilder[K, V] {
 	return qb
 }
 
-func (qb *QueryBuilder[K, V]) Execute() ([]interface{}, error) {
-
+func (qb *QueryBuilder[K, V]) Execute() (chan interface{}, error) {
 	if qb.filter != nil {
 		keys, err := qb.dt.Where(qb.filter)
 		if err != nil {
 			return nil, err
 		}
 		qb.keys = keys
+	}
+
+	if qb.updateData != nil {
+		for _, key := range qb.keys {
+			err := qb.dt.UpdateWithData(key, *qb.updateData)
+			if err != nil {
+				return nil, nil
+			}
+		}
 	}
 
 	if qb.updateFunc != nil {
