@@ -2,7 +2,17 @@ package queryEngine
 
 import (
 	"ZeroStore/storageEngine"
+	"fmt"
 )
+
+type Result[T any] struct {
+	Value T
+	Err   error
+}
+
+func NewResult[T any](value T, err error) Result[T] {
+	return Result[T]{Value: value, Err: err}
+}
 
 type QueryBuilder[K comparable, V any] struct {
 	dt         *storageEngine.DataTable[K, V]
@@ -41,47 +51,55 @@ func (qb *QueryBuilder[K, V]) Delete() *QueryBuilder[K, V] {
 	return qb
 }
 
-func (qb *QueryBuilder[K, V]) Execute() (chan interface{}, error) {
+func (qb *QueryBuilder[K, V]) Execute() ([]map[string]interface{}, error) {
 	if qb.filter != nil {
-		keys, err := qb.dt.Where(qb.filter)
-		if err != nil {
-			return nil, err
+		res := qb.dt.Where(qb.filter)
+		if res.Err != nil {
+			return nil, res.Err
 		}
-		qb.keys = keys
+		qb.keys = res.Value
 	}
 
 	if qb.updateData != nil {
 		for _, key := range qb.keys {
-			err := qb.dt.UpdateWithData(key, *qb.updateData)
-			if err != nil {
-				return nil, nil
+			res := qb.dt.UpdateWithData(key, *qb.updateData)
+			if res.Err != nil {
+				return nil, res.Err
 			}
 		}
 	}
 
 	if qb.updateFunc != nil {
 		for _, key := range qb.keys {
-			// TODO implement basic logging (5 rows updated)
-			err := qb.dt.UpdateWithFunc(key, qb.updateFunc)
-			if err != nil {
-				return nil, err
+			// TODO implement basic logging (e.g., "5 rows updated")
+			res := qb.dt.UpdateWithFunc(key, qb.updateFunc)
+			if res.Err != nil {
+				return nil, res.Err
 			}
 		}
 	}
 
 	if qb.columns != nil {
-		results, err := qb.dt.Select(qb.keys, qb.columns)
-		if err != nil {
-			return nil, err
+		var results []map[string]interface{}
+		resChan := qb.dt.Select(qb.keys, qb.columns)
+		for res := range resChan {
+			if res.Err != nil {
+				return nil, res.Err
+			}
+			row, ok := res.Value.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("unexpected type %T, expected map[string]interface{}", res.Value)
+			}
+			results = append(results, row)
 		}
 		return results, nil
 	}
 
 	if qb.updateFunc == nil && qb.columns == nil {
 		for _, key := range qb.keys {
-			_, err := qb.dt.Delete(key)
-			if err != nil {
-				return nil, err
+			deleteResult := qb.dt.Delete(key)
+			if deleteResult.Err != nil {
+				return nil, deleteResult.Err
 			}
 		}
 	}

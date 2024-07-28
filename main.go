@@ -32,7 +32,7 @@ func compare(a, b int) int {
 
 type emp struct {
 	Id   int
-	Name string
+	Name int
 }
 
 func main() {
@@ -45,15 +45,16 @@ func main() {
 
 	for i := 1; i < 10; i++ {
 		// s := fmt.Sprintf("data:%d", i)
-		dt.Insert(i, emp{Id: i, Name: fmt.Sprintf("name is:%v", i)})
+		dt.Insert(i, emp{Id: i, Name: i})
 	}
 
 	qb := queryEngine.NewQueryBuilder(dt)
-	data, err := qb.Select([]string{"Name"}).Where(gtThree).Execute()
+	data, err := qb.Select([]string{"Name", "Id"}).Where(gtThree).Execute()
 	if err != nil {
 		panic(err)
 	}
-	for d := range data {
+
+	for _, d := range data {
 		fmt.Println(d)
 	}
 
@@ -67,6 +68,6 @@ func gtThree(d storageEngine.DataRow[int, emp]) bool {
 	return d.Data.Id > 3
 }
 
-func all(d storageEngine.DataRow[int, emp]) bool {
+func all(interface{}) bool {
 	return true
 }
