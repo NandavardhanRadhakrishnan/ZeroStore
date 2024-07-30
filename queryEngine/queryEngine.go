@@ -2,7 +2,7 @@ package queryEngine
 
 import (
 	"ZeroStore/storageEngine"
-	"fmt"
+	"reflect"
 )
 
 type Result[T any] struct {
@@ -18,7 +18,7 @@ type QueryBuilder[K comparable, V any] struct {
 	dt         *storageEngine.DataTable[K, V]
 	keys       []K
 	filter     func(storageEngine.DataRow[K, V]) bool
-	columns    []string
+	resultType interface{}
 	updateFunc func(data V) V
 	updateData *V
 }
@@ -27,8 +27,8 @@ func NewQueryBuilder[K comparable, V any](dt *storageEngine.DataTable[K, V]) *Qu
 	return &QueryBuilder[K, V]{dt: dt}
 }
 
-func (qb *QueryBuilder[K, V]) Select(columns []string) *QueryBuilder[K, V] {
-	qb.columns = columns
+func (qb *QueryBuilder[K, V]) Select(resultType any) *QueryBuilder[K, V] {
+	qb.resultType = resultType
 	return qb
 }
 
@@ -51,7 +51,7 @@ func (qb *QueryBuilder[K, V]) Delete() *QueryBuilder[K, V] {
 	return qb
 }
 
-func (qb *QueryBuilder[K, V]) Execute() ([]map[string]interface{}, error) {
+func (qb *QueryBuilder[K, V]) Execute() ([]interface{}, error) {
 	if qb.filter != nil {
 		res := qb.dt.Where(qb.filter)
 		if res.Err != nil {
@@ -78,24 +78,19 @@ func (qb *QueryBuilder[K, V]) Execute() ([]map[string]interface{}, error) {
 			}
 		}
 	}
-
-	if qb.columns != nil {
-		var results []map[string]interface{}
-		resChan := qb.dt.Select(qb.keys, qb.columns)
+	if qb.resultType != nil {
+		var results []interface{}
+		resChan := qb.dt.Select(qb.keys, qb.resultType)
 		for res := range resChan {
 			if res.Err != nil {
 				return nil, res.Err
 			}
-			row, ok := res.Value.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("unexpected type %T, expected map[string]interface{}", res.Value)
-			}
-			results = append(results, row)
+			results = append(results, reflect.ValueOf(res.Value).Elem().Interface())
 		}
 		return results, nil
 	}
 
-	if qb.updateFunc == nil && qb.columns == nil {
+	if qb.updateFunc == nil && qb.resultType == nil {
 		for _, key := range qb.keys {
 			deleteResult := qb.dt.Delete(key)
 			if deleteResult.Err != nil {

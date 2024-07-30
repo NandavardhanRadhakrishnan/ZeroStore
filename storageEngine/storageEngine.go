@@ -237,6 +237,18 @@ func (dt *DataTable[K, V]) Delete(primaryKey K) Result[DataRow[K, V]] {
 	return Result[DataRow[K, V]]{Value: res.Value}
 }
 
+func (dt *DataTable[K, V]) GetFromKeys(keys []K) Result[[]DataRow[K, V]] {
+	var rows []DataRow[K, V]
+	for _, key := range keys {
+		res := dt.Search(key)
+		if res.Err != nil {
+			return Result[[]DataRow[K, V]]{Err: res.Err}
+		}
+		rows = append(rows, res.Value)
+	}
+	return Result[[]DataRow[K, V]]{Value: rows}
+}
+
 func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) Result[[]K] {
 	rowsChan := dt.GetAll()
 	var keys []K
@@ -252,9 +264,9 @@ func (dt *DataTable[K, V]) Where(filter func(DataRow[K, V]) bool) Result[[]K] {
 	return Result[[]K]{Value: keys}
 }
 
-func (dt *DataTable[K, V]) Select(keys []K, columns []string) chan Result[interface{}] {
+func (dt *DataTable[K, V]) Select(keys []K, resultType interface{}) chan Result[interface{}] {
 	result := make(chan Result[interface{}])
-
+	resType := reflect.TypeOf(resultType)
 	go func() {
 		defer close(result)
 		var dataRow DataRow[K, V]
@@ -265,14 +277,14 @@ func (dt *DataTable[K, V]) Select(keys []K, columns []string) chan Result[interf
 			searchResult := dt.Search(k)
 			if searchResult.Err != nil {
 				result <- Result[interface{}]{Err: searchResult.Err}
-				return
+				continue // Use continue instead of return to process all keys
 			}
 			dataRow = searchResult.Value
 
-			projectedRow, err = projectRow(dataRow, columns)
+			projectedRow, err = ProjectRow(dataRow, resType)
 			if err != nil {
 				result <- Result[interface{}]{Err: err}
-				return
+				continue // Use continue instead of return to process all keys
 			}
 
 			result <- Result[interface{}]{Value: projectedRow}
@@ -420,20 +432,47 @@ func newRow[K comparable, V any](primaryKey K, data V) DataRow[K, V] {
 	return p
 }
 
-func projectRow[K comparable, V any](row DataRow[K, V], columns []string) (interface{}, error) {
-	val := reflect.ValueOf(row.Data)
+// func projectRow[K comparable, V any](row DataRow[K, V], columns []string) (interface{}, error) {
+// 	val := reflect.ValueOf(row.Data)
 
-	if val.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("data is not a struct")
+// 	if val.Kind() != reflect.Struct {
+// 		return nil, fmt.Errorf("data is not a struct")
+// 	}
+
+// 	result := make(map[string]interface{})
+// 	for _, column := range columns {
+// 		field := val.FieldByName(column)
+// 		if !field.IsValid() {
+// 			return nil, fmt.Errorf("field %s not found in struct", column)
+// 		}
+// 		result[column] = field.Interface()
+// 	}
+// 	return result, nil
+// }
+
+func ProjectRow[K comparable, V any](row DataRow[K, V], resultType reflect.Type) (interface{}, error) {
+	srcVal := reflect.ValueOf(row.Data)
+
+	if resultType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("resultType must be a struct type")
 	}
 
-	result := make(map[string]interface{})
-	for _, column := range columns {
-		field := val.FieldByName(column)
-		if !field.IsValid() {
-			return nil, fmt.Errorf("field %s not found in struct", column)
+	dstVal := reflect.New(resultType)
+
+	for i := 0; i < dstVal.Elem().NumField(); i++ {
+		dstField := dstVal.Elem().Type().Field(i)
+		srcField := srcVal.FieldByName(dstField.Name)
+
+		if !srcField.IsValid() {
+			return nil, fmt.Errorf("field %s not found in source struct", dstField.Name)
 		}
-		result[column] = field.Interface()
+
+		if !srcField.Type().AssignableTo(dstField.Type) {
+			return nil, fmt.Errorf("field %s types are not assignable", dstField.Name)
+		}
+
+		dstVal.Elem().Field(i).Set(srcField)
 	}
-	return result, nil
+
+	return dstVal.Interface(), nil
 }
