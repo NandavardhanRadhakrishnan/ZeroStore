@@ -82,10 +82,10 @@ func main() {
 
 	ut.LoadIndex(ut.IndexFile.Name())
 	qb := queryEngine.NewQueryBuilder(ut)
-	a, _ := (qb.Select(foo{}).Where(allUser).Execute())
-	for _, i := range a {
-		fmt.Println(i.(foo).Name)
-	}
+	// TODO figure out this FUBAR piece of shit
+	// a := (qb.Where(firstFiveUser).Execute())
+	b := qb.Select(foo{}).GetFromKeys([]any{1, 2, 3, 4, 5}).Execute()
+	fmt.Println(b)
 
 	// var out foo
 	// dr := storageEngine.DataRow[int, helper.User]{PrimaryKey: 1, Data: helper.User{ID: 1, Name: "abc", Username: "alsoabc", Email: "abc@def.com"}}
@@ -94,8 +94,8 @@ func main() {
 }
 
 type foo struct {
-	ID   int
-	Name string
+	ID    int
+	Title string
 }
 
 func mulTwo(i int) int {
@@ -106,8 +106,8 @@ func gtThree(d storageEngine.DataRow[int, emp]) bool {
 	return d.Data.Id > 3
 }
 
-func allUser(storageEngine.DataRow[int, helper.User]) bool {
-	return true
+func firstFiveUser(r storageEngine.DataRow[int, helper.User]) bool {
+	return r.Data.ID < 6
 }
 
 func allPost(storageEngine.DataRow[int, helper.Post]) bool {

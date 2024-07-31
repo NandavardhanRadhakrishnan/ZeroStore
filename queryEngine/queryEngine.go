@@ -37,6 +37,15 @@ func (qb *QueryBuilder[K, V]) Where(filter func(storageEngine.DataRow[K, V]) boo
 	return qb
 }
 
+func (qb *QueryBuilder[K, V]) GetFromKeys(keys []any) *QueryBuilder[K, V] {
+	for _, k := range keys {
+		if v, ok := k.(K); ok {
+			qb.keys = append(qb.keys, v)
+		}
+	}
+	return qb
+}
+
 func (qb *QueryBuilder[K, V]) UpdateWithData(UpdateData V) *QueryBuilder[K, V] {
 	qb.updateData = &UpdateData
 	return qb
@@ -51,11 +60,24 @@ func (qb *QueryBuilder[K, V]) Delete() *QueryBuilder[K, V] {
 	return qb
 }
 
-func (qb *QueryBuilder[K, V]) Execute() ([]interface{}, error) {
+func (qb *QueryBuilder[K, V]) Execute() Result[any] {
+
+	if qb.keys != nil {
+		res := qb.dt.GetFromKeys(qb.keys)
+		if res.Err != nil {
+			return Result[any]{nil, res.Err}
+		}
+		result := make([]interface{}, len(res.Value))
+		for i, row := range res.Value {
+			result[i] = row.PrimaryKey
+		}
+		return Result[any]{result, nil}
+	}
+
 	if qb.filter != nil {
 		res := qb.dt.Where(qb.filter)
 		if res.Err != nil {
-			return nil, res.Err
+			return Result[any]{nil, res.Err}
 		}
 		qb.keys = res.Value
 	}
@@ -64,7 +86,7 @@ func (qb *QueryBuilder[K, V]) Execute() ([]interface{}, error) {
 		for _, key := range qb.keys {
 			res := qb.dt.UpdateWithData(key, *qb.updateData)
 			if res.Err != nil {
-				return nil, res.Err
+				return Result[any]{nil, res.Err}
 			}
 		}
 	}
@@ -74,7 +96,7 @@ func (qb *QueryBuilder[K, V]) Execute() ([]interface{}, error) {
 			// TODO implement basic logging (e.g., "5 rows updated")
 			res := qb.dt.UpdateWithFunc(key, qb.updateFunc)
 			if res.Err != nil {
-				return nil, res.Err
+				return Result[any]{nil, res.Err}
 			}
 		}
 	}
@@ -83,20 +105,20 @@ func (qb *QueryBuilder[K, V]) Execute() ([]interface{}, error) {
 		resChan := qb.dt.Select(qb.keys, qb.resultType)
 		for res := range resChan {
 			if res.Err != nil {
-				return nil, res.Err
+				return Result[any]{nil, res.Err}
 			}
 			results = append(results, reflect.ValueOf(res.Value).Elem().Interface())
 		}
-		return results, nil
+		return Result[any]{results, nil}
 	}
 
 	if qb.updateFunc == nil && qb.resultType == nil {
 		for _, key := range qb.keys {
 			deleteResult := qb.dt.Delete(key)
 			if deleteResult.Err != nil {
-				return nil, deleteResult.Err
+				return Result[any]{nil, deleteResult.Err}
 			}
 		}
 	}
-	return nil, nil
+	return Result[any]{nil, nil}
 }
