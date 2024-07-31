@@ -60,15 +60,15 @@ func main() {
 	// }
 
 	var ut *storageEngine.DataTable[int, helper.User]
-	// var pt *storageEngine.DataTable[int, helper.Post]
+	var pt *storageEngine.DataTable[int, helper.Post]
 	var err error
 
 	if ut, err = storageEngine.NewDataTable[int, helper.User](compare, "users", 4, false); err != nil {
 		panic(err)
 	}
-	// if pt, err = storageEngine.NewDataTable[int, helper.Post](compare, "posts", 4, false); err != nil {
-	// 	panic(err)
-	// }
+	if pt, err = storageEngine.NewDataTable[int, helper.Post](compare, "posts", 4, false); err != nil {
+		panic(err)
+	}
 
 	// u, p := helper.MockData()
 	// for _, user := range u {
@@ -81,11 +81,16 @@ func main() {
 	// pt.SaveIndex()
 
 	ut.LoadIndex(ut.IndexFile.Name())
-	qb := queryEngine.NewQueryBuilder(ut)
-	// TODO figure out this FUBAR piece of shit
-	// a := (qb.Where(firstFiveUser).Execute())
-	b := qb.Select(foo{}).GetFromKeys([]any{1, 2, 3, 4, 5}).Execute()
-	fmt.Println(b)
+	pt.LoadIndex(pt.IndexFile.Name())
+	uqb := queryEngine.NewQueryBuilder(ut)
+	pqb := queryEngine.NewQueryBuilder(pt)
+	uqb.Where(firstFiveUser)
+	uList := queryEngine.Execute[int, helper.User, []int](uqb)
+	pqb.GetFromKeys(uList.Value).UpdateWithFunc(changeName)
+	queryEngine.Execute[int, helper.Post, queryEngine.Result[helper.Post]](pqb)
+	pqb.GetFromKeys([]int{1, 2, 3, 4, 5, 6, 7, 8, 9})
+	pList := queryEngine.Execute[int, helper.Post, []helper.Post](pqb)
+	fmt.Println(pList)
 
 	// var out foo
 	// dr := storageEngine.DataRow[int, helper.User]{PrimaryKey: 1, Data: helper.User{ID: 1, Name: "abc", Username: "alsoabc", Email: "abc@def.com"}}
@@ -98,8 +103,9 @@ type foo struct {
 	Title string
 }
 
-func mulTwo(i int) int {
-	return i * 2
+func changeName(dr helper.Post) helper.Post {
+	dr.Title = "changed"
+	return dr
 }
 
 func gtThree(d storageEngine.DataRow[int, emp]) bool {
