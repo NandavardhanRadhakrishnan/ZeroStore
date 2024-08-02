@@ -58,8 +58,34 @@ func (qb *QueryBuilder[K, V]) Delete() *QueryBuilder[K, V] {
 	return qb
 }
 
+func (qb *QueryBuilder[K, V]) ClearQb() {
+	qb.toDelete = false
+	qb.filter = nil
+	qb.keys = nil
+	qb.resultType = nil
+	qb.updateData = nil
+	qb.updateFunc = nil
+}
+
 func Execute[K comparable, V any, R any](qb *QueryBuilder[K, V]) Result[R] {
 	var result R
+
+	defer qb.ClearQb()
+
+	// Apply filter and fetch keys
+	if qb.filter != nil {
+		res := qb.dt.Where(qb.filter)
+		if res.Err != nil {
+			return Result[R]{Err: res.Err}
+		}
+		qb.keys = res.Value
+
+		// If the result type is []K, return the keys
+		switch any(result).(type) {
+		case []K:
+			return Result[R]{Value: any(qb.keys).(R)}
+		}
+	}
 
 	// Fetch rows based on keys
 	if qb.keys != nil {
@@ -99,21 +125,6 @@ func Execute[K comparable, V any, R any](qb *QueryBuilder[K, V]) Result[R] {
 				return Result[R]{Value: results.Interface().(R)}
 
 			}
-		}
-	}
-
-	// Apply filter and fetch keys
-	if qb.filter != nil {
-		res := qb.dt.Where(qb.filter)
-		if res.Err != nil {
-			return Result[R]{Err: res.Err}
-		}
-		qb.keys = res.Value
-
-		// If the result type is []K, return the keys
-		switch any(result).(type) {
-		case []K:
-			return Result[R]{Value: any(qb.keys).(R)}
 		}
 	}
 

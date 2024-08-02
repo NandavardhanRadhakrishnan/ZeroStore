@@ -11,7 +11,7 @@ import (
 func storeTest() {
 	fmt.Println("running test on ZeroStore")
 
-	dt, _ := storageEngine.NewDataTable[int, test.Row](compare, "test/test", 4, true)
+	dt, _ := storageEngine.NewDataTable[int, test.Row](compare, "test/test", 4)
 	for i := 1; i < test.NumberOfRows; i++ {
 		a := test.GenerateRow(1024)
 		dt.Insert(i, a)
@@ -63,19 +63,20 @@ func main() {
 	var pt *storageEngine.DataTable[int, helper.Post]
 	var err error
 
-	if ut, err = storageEngine.NewDataTable[int, helper.User](compare, "users", 4, false); err != nil {
+	if ut, err = storageEngine.NewDataTable[int, helper.User](compare, "users", 4); err != nil {
 		panic(err)
 	}
-	if pt, err = storageEngine.NewDataTable[int, helper.Post](compare, "posts", 4, false); err != nil {
+	if pt, err = storageEngine.NewDataTable[int, helper.Post](compare, "posts", 4); err != nil {
 		panic(err)
 	}
 
+	// // store mock data
 	// u, p := helper.MockData()
 	// for _, user := range u {
 	// 	ut.Insert(user.ID, user)
 	// }
 	// for _, post := range p {
-	// 	pt.Insert(post.UserID, post)
+	// 	pt.Insert(post.ID, post)
 	// }
 	// ut.SaveIndex()
 	// pt.SaveIndex()
@@ -84,23 +85,39 @@ func main() {
 	pt.LoadIndex(pt.IndexFile.Name())
 	uqb := queryEngine.NewQueryBuilder(ut)
 	pqb := queryEngine.NewQueryBuilder(pt)
-	uqb.Where(firstFiveUser)
-	uList := queryEngine.Execute[int, helper.User, []int](uqb)
-	pqb.GetFromKeys(uList.Value).UpdateWithFunc(changeName)
-	queryEngine.Execute[int, helper.Post, queryEngine.Result[helper.Post]](pqb)
-	pqb.GetFromKeys([]int{1, 2, 3, 4, 5, 6, 7, 8, 9})
-	pList := queryEngine.Execute[int, helper.Post, []helper.Post](pqb)
-	fmt.Println(pList)
 
-	// var out foo
-	// dr := storageEngine.DataRow[int, helper.User]{PrimaryKey: 1, Data: helper.User{ID: 1, Name: "abc", Username: "alsoabc", Email: "abc@def.com"}}
-	// a, _ := storageEngine.ProjectRow(dr, &out)
-	// fmt.Println(a)
+	// example query to get posts of first 5 users
+
+	uqb.Select(userIDs{}).Where(firstFiveUser)
+	userL := queryEngine.Execute[int, helper.User, []userIDs](uqb)
+
+	if userL.Err != nil {
+		panic(userL.Err)
+	}
+
+	handler := func(r storageEngine.DataRow[int, helper.Post]) bool {
+		return matchPost(r, userL.Value)
+	}
+	pqb.Select(postShort{}).Where(handler)
+	postL := queryEngine.Execute[int, helper.Post, []postShort](pqb)
+
+	if postL.Err != nil {
+		panic(postL.Err)
+	}
+
+	for _, sp := range postL.Value {
+		fmt.Println(sp)
+	}
+
 }
 
-type foo struct {
-	ID    int
-	Title string
+type userIDs struct {
+	ID int
+}
+
+type postShort struct {
+	UserID int
+	Title  string
 }
 
 func changeName(dr helper.Post) helper.Post {
@@ -118,4 +135,15 @@ func firstFiveUser(r storageEngine.DataRow[int, helper.User]) bool {
 
 func allPost(storageEngine.DataRow[int, helper.Post]) bool {
 	return true
+}
+
+func matchPost(r storageEngine.DataRow[int, helper.Post], userL []userIDs) bool {
+	ret := false
+	for _, i := range userL {
+		if r.Data.UserID == i.ID {
+			ret = true
+			break
+		}
+	}
+	return ret
 }

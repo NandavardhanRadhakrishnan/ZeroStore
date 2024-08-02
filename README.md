@@ -10,9 +10,9 @@ TODO
 - [ ] index for other columns to speed up searching
 - [x] make wrapper functions for SQL like where select etc
 - [ ] batch processing optimisation
-- [ ] channel based streaming for larger than memory data
+- [x] channel based streaming for larger than memory data
 - [ ] background threads for compaction and serialisation
-- [ ] multi-table joins
+- [x] multi-table joins
 - [ ] hardware level block storage optimisation
 
 ## Current Efficiency

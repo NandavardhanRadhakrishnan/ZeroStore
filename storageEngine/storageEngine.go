@@ -41,7 +41,7 @@ func NewResult[T any](value T, err error) Result[T] {
 	return Result[T]{Value: value, Err: err}
 }
 
-func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, btreeDegree int, forceOverwrite bool) (*DataTable[K, V], error) {
+func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, btreeDegree int) (*DataTable[K, V], error) {
 
 	var dataFile *os.File
 	var indexFile *os.File
@@ -57,51 +57,27 @@ func NewDataTable[K comparable, V any](compare func(a, b K) int, dbName string, 
 		return nil, err
 	}
 
-	if helper.FileExists(dataFilePath) && !forceOverwrite {
-		dataFile, err = os.Open(dataFilePath)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		dataFile, err = os.Create(dataFilePath)
-		if err != nil {
-			return nil, err
-		}
+	dataFile, err = os.OpenFile(dataFilePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
+	}
+	indexFile, err = os.OpenFile(indexFilePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
 	}
 
-	if helper.FileExists(indexFilePath) && !forceOverwrite {
-		indexFile, err = os.Open(indexFilePath)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		indexFile, err = os.Create(indexFilePath)
-		if err != nil {
-			return nil, err
-		}
+	freeFile, err = os.OpenFile(freeFilePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
+	}
+	info, err := freeFile.Stat()
+	if err != nil {
+		return nil, err
 	}
 
-	if helper.FileExists(freeFilePath) && !forceOverwrite {
-		freeFile, err = os.Open(freeFilePath)
-		if err != nil {
-			return nil, err
-		}
-		defer freeFile.Close()
-
-		info, err := freeFile.Stat()
-		if err != nil {
-			return nil, err
-		}
-
-		if info.Size() > 0 {
-			decoder := gob.NewDecoder(freeFile)
-			if err := decoder.Decode(&freeList); err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		freeFile, err = os.Create(freeFilePath)
-		if err != nil {
+	if info.Size() > 0 {
+		decoder := gob.NewDecoder(freeFile)
+		if err := decoder.Decode(&freeList); err != nil {
 			return nil, err
 		}
 	}
